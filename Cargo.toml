@@ -1,0 +1,19 @@
+[package]
+name = "hfile"
+version = "0.1.0"
+authors = ["Nicolas Embriz <nbari@tequila.io>"]
+description = "Hfile is a command-line interface (CLI) tool for generating hash values of files"
+documentation = "https://github.com/nbari/hfile"
+repository = "https://github.com/nbari/hfile"
+homepage = "https://github.com/nbari/hfile"
+readme = "README.md"
+keywords = ["hash", "cli", "fingerprint", "checksum"]
+categories = ["command-line-utilities", "cryptography"]
+license = "BSD-3-Clause"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4.2", features = ["cargo", "derive"] }
