@@ -1,7 +1,7 @@
 use clap::Parser;
-use hfile::command::Cli;
+use hfile::command::Args;
 
 fn main() {
-    let cli = Cli::parse();
-    println!("{:?}", cli);
+    let args = Args::parse();
+    println!("{:?}", args);
 }

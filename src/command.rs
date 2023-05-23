@@ -1,19 +1,26 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about = "hfile generates cryptographic hashes from files.", long_about = None)]
-pub struct Cli {
+pub struct Args {
     #[arg(
         short = 'p',
         long = "path",
         help = "Create hash for all files under path"
     )]
-    path: Option<String>,
+    pub path: Option<String>,
 
-    #[arg(
-        short = 'a',
-        long = "algorithm",
-        help = "Algorithm to use, default BLAKE3"
-    )]
-    algorithm: Option<String>,
+    #[arg(short = 'a', long = "algorithm", value_enum, default_value_t=Algorithm::Blake)]
+    pub algorithm: Algorithm,
+
+    pub file: String,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum Algorithm {
+    Md5,
+    Sha1,
+    Sha256,
+    Sha512,
+    Blake,
 }
