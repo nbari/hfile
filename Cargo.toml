@@ -18,3 +18,4 @@ blake3 = "1"
 clap = { version = "4.3", features = ["cargo", "derive"] }
 md5  = "0.7"
 ring = "0.16"
+walkdir = "2"

@@ -13,7 +13,8 @@ pub struct Args {
     #[arg(short = 'a', long = "algorithm", value_enum, default_value_t=Algorithm::Blake)]
     pub algorithm: Algorithm,
 
-    pub file: String,
+    #[clap(required_unless_present("path"))]
+    pub file: Option<String>,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
