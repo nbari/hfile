@@ -17,7 +17,7 @@ pub struct Args {
     pub file: Option<String>,
 }
 
-#[derive(ValueEnum, Clone, Debug)]
+#[derive(ValueEnum, Copy, Clone, Debug)]
 pub enum Algorithm {
     Md5,
     Sha1,

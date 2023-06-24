@@ -1,9 +1,9 @@
 use anyhow::Result;
 use ring::digest::{Context, SHA1_FOR_LEGACY_USE_ONLY, SHA256, SHA384, SHA512};
 use std::fmt::Write;
-use std::io::Read;
+use std::{io::Read, path::Path};
 
-pub fn blake3(file_path: &str) -> Result<String> {
+pub fn blake3(file_path: &Path) -> Result<String> {
     let mut file = std::fs::File::open(file_path)?;
     let mut hasher = blake3::Hasher::new();
     let mut buf = [0_u8; 65536];
@@ -16,7 +16,7 @@ pub fn blake3(file_path: &str) -> Result<String> {
     Ok(hasher.finalize().to_hex().to_string())
 }
 
-pub fn md5(file_path: &str) -> Result<String> {
+pub fn md5(file_path: &Path) -> Result<String> {
     let mut file = std::fs::File::open(file_path)?;
     let mut context = md5::Context::new();
     let mut buf = [0_u8; 65536];
@@ -29,7 +29,7 @@ pub fn md5(file_path: &str) -> Result<String> {
     Ok(write_hex_bytes(context.compute().as_ref()))
 }
 
-pub fn sha1(file_path: &str) -> Result<String> {
+pub fn sha1(file_path: &Path) -> Result<String> {
     let mut file = std::fs::File::open(file_path)?;
     let mut context = Context::new(&SHA1_FOR_LEGACY_USE_ONLY);
     let mut buf = [0_u8; 65536];
@@ -42,7 +42,7 @@ pub fn sha1(file_path: &str) -> Result<String> {
     Ok(write_hex_bytes(context.finish().as_ref()))
 }
 
-pub fn sha256(file_path: &str) -> Result<String> {
+pub fn sha256(file_path: &Path) -> Result<String> {
     let mut file = std::fs::File::open(file_path)?;
     let mut context = Context::new(&SHA256);
     let mut buf = [0_u8; 65536];
@@ -55,7 +55,7 @@ pub fn sha256(file_path: &str) -> Result<String> {
     Ok(write_hex_bytes(context.finish().as_ref()))
 }
 
-pub fn sha384(file_path: &str) -> Result<String> {
+pub fn sha384(file_path: &Path) -> Result<String> {
     let mut file = std::fs::File::open(file_path)?;
     let mut context = Context::new(&SHA384);
     let mut buf = [0_u8; 65536];
@@ -68,7 +68,7 @@ pub fn sha384(file_path: &str) -> Result<String> {
     Ok(write_hex_bytes(context.finish().as_ref()))
 }
 
-pub fn sha512(file_path: &str) -> Result<String> {
+pub fn sha512(file_path: &Path) -> Result<String> {
     let mut file = std::fs::File::open(file_path)?;
     let mut context = Context::new(&SHA512);
     let mut buf = [0_u8; 65536];
