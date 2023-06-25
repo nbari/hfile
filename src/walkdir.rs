@@ -1,3 +1,4 @@
+use crate::get_file_size;
 use crate::{
     command::Algorithm,
     hash::{blake3, md5, sha1, sha256, sha384, sha512},
@@ -9,7 +10,7 @@ use std::path::PathBuf;
 use tokio::task;
 use walkdir::WalkDir;
 
-pub async fn read(dir: &str, algo: Algorithm) -> Result<()> {
+pub async fn read(dir: &str, algo: Algorithm, size: bool) -> Result<()> {
     let mut tasks = FuturesUnordered::new();
 
     let threads = if num_cpus::get() - 1 == 0 {
@@ -24,7 +25,19 @@ pub async fn read(dir: &str, algo: Algorithm) -> Result<()> {
         if path.is_file() {
             tasks.push(task::spawn(async move {
                 match checksum(algo, path).await {
-                    Ok((s, p)) => println!("{}\t{}", s, p.clean().display()),
+                    Ok((s, p)) => {
+                        if size {
+                            let file_size = get_file_size(&p);
+                            println!(
+                                "{}\t{}\t{}",
+                                s,
+                                p.clean().display(),
+                                bytesize::to_string(file_size, true)
+                            );
+                        } else {
+                            println!("{}\t{}", s, p.clean().display(),)
+                        }
+                    }
                     Err(e) => eprintln!("{}", e),
                 }
             }));

@@ -1,8 +1,10 @@
 use clap::Parser;
+use hfile::get_file_size;
 use hfile::{
     command::{Algorithm, Args},
     hash, walkdir,
 };
+use path_clean::PathClean;
 use std::{fs, path::Path};
 
 #[tokio::main]
@@ -29,7 +31,19 @@ async fn main() {
                             };
 
                             match hash {
-                                Ok(h) => println!("{h}\t{}", file.display()),
+                                Ok(h) => {
+                                    if args.size {
+                                        let file_size = get_file_size(file);
+                                        println!(
+                                            "{}\t{}\t{}",
+                                            h,
+                                            file.clean().display(),
+                                            bytesize::to_string(file_size, true)
+                                        )
+                                    } else {
+                                        println!("{h}\t{}", file.clean().display(),)
+                                    }
+                                }
                                 Err(e) => {
                                     eprintln!("{e}");
                                     std::process::exit(1);
@@ -45,7 +59,7 @@ async fn main() {
                 }
             }
         }
-        Some(ref s) => match walkdir::read(s, args.algorithm).await {
+        Some(ref s) => match walkdir::read(s, args.algorithm, args.size).await {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("{e}");

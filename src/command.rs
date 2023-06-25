@@ -15,6 +15,9 @@ pub struct Args {
 
     #[clap(required_unless_present("path"))]
     pub file: Option<String>,
+
+    #[arg(short = 's', long = "size", help = "Show size of file")]
+    pub size: bool,
 }
 
 #[derive(ValueEnum, Copy, Clone, Debug)]
