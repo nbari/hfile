@@ -6,6 +6,7 @@ use anyhow::{anyhow, Result};
 use futures::stream::{FuturesUnordered, StreamExt};
 use path_clean::PathClean;
 use std::path::PathBuf;
+use tokio::task;
 use walkdir::WalkDir;
 
 pub async fn read(dir: &str, algo: Algorithm) -> Result<()> {
@@ -21,11 +22,17 @@ pub async fn read(dir: &str, algo: Algorithm) -> Result<()> {
         let entry = entry?;
         let path = entry.path().to_owned();
         if path.is_file() {
-            tasks.push(checksum(algo, path));
+            tasks.push(task::spawn(async move {
+                match checksum(algo, path).await {
+                    Ok((s, p)) => println!("{}\t{}", s, p.clean().display()),
+                    Err(e) => eprintln!("{}", e),
+                }
+            }));
+
             if tasks.len() == threads {
                 if let Some(r) = tasks.next().await {
                     match r {
-                        Ok(_) => {}
+                        Ok(s) => dbg!(s),
                         Err(e) => return Err(anyhow!("{}", e)),
                     }
                 }
@@ -36,7 +43,9 @@ pub async fn read(dir: &str, algo: Algorithm) -> Result<()> {
     // consume remaining tasks
     while let Some(r) = tasks.next().await {
         match r {
-            Ok(_) => {}
+            Ok(_) => {
+                // Task completed sucessfully
+            }
             Err(e) => return Err(anyhow!("{}", e)),
         }
     }
@@ -44,7 +53,7 @@ pub async fn read(dir: &str, algo: Algorithm) -> Result<()> {
     Ok(())
 }
 
-async fn checksum(algo: Algorithm, path: PathBuf) -> Result<()> {
+async fn checksum(algo: Algorithm, path: PathBuf) -> Result<(String, PathBuf)> {
     let hash = match algo {
         Algorithm::Md5 => md5(&path)?,
         Algorithm::Sha1 => sha1(&path)?,
@@ -53,6 +62,5 @@ async fn checksum(algo: Algorithm, path: PathBuf) -> Result<()> {
         Algorithm::Sha512 => sha512(&path)?,
         Algorithm::Blake => blake3(&path)?,
     };
-    println!("{}\t{}", hash, path.clean().display());
-    Ok(())
+    Ok((hash, path))
 }
