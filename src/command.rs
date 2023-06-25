@@ -18,6 +18,9 @@ pub struct Args {
 
     #[arg(short = 's', long = "size", help = "Show size of file")]
     pub size: bool,
+
+    #[arg(short = 'd', long = "duplicates", help = "Find duplicates")]
+    pub duplicates: bool,
 }
 
 #[derive(ValueEnum, Copy, Clone, Debug)]
