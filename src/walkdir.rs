@@ -135,8 +135,16 @@ pub async fn find_duplicates(dir: &str, algo: Algorithm) -> Result<()> {
     }
 
     let locked_map = dup_map.lock().unwrap();
-    for (k, v) in locked_map.iter() {
-        println!("{} - {}", k, v.clean().display());
+    for (i, (k, v)) in locked_map.iter().enumerate() {
+        println!("{k}");
+        let value_str = v.clean().display().to_string();
+        let split_value: Vec<&str> = value_str.split_whitespace().collect();
+        for value in split_value {
+            println!("\t{}", value);
+        }
+        if i < locked_map.len() - 1 {
+            println!();
+        }
     }
     drop(locked_map);
 
