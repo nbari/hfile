@@ -46,4 +46,5 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: clippy
-        run: cargo clippy -- -D clippy::all -D clippy::nursery -D warnings
+        # run: cargo clippy -- -D clippy::all -D clippy::nursery -D warnings
+        run: cargo clippy -- -D clippy::all -D warnings

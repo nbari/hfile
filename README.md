@@ -1,10 +1,32 @@
 # hfile
 
-Hfile is a command-line interface (CLI) tool for generating cryptographic hashes from files.
+Hfile is a command-line interface (CLI) tool for generating cryptographic hashes
+from files while also facilitating the identification of duplicates.
 
-Some initial goals:
+Supported alrotihms:
+* Blake3 (default)
+* md5
+* sha1
+* sha256
+* sha384
+* sha512
 
-* get hash (Blake3) as fast as possible (recursive option for multiple dirs)
-* use the hash to find duplicates.
+Example:
 
-Use the output to create an indexer
+    $ hfile file
+    9a689455c65ca329fbcae5a1ae8725d88c7a6fbc82fd25bbcd9370ad9c272c50        test-file
+
+If need also the size of the file:
+
+    $ hfile -s <file>
+    9a689455c65ca329fbcae5a1ae8725d88c7a6fbc82fd25bbcd9370ad9c272c50        test-file 44B
+
+To recursively get hash of all files within a directory:
+
+    $ hfile -p $HOME
+    <hash> <file path>
+
+Finding duplicates:
+
+    $ hfile -d -p $HOME
+    will only print duplicates found
