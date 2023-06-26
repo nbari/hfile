@@ -84,7 +84,7 @@ pub fn sha512(file_path: &Path) -> Result<String> {
 pub fn write_hex_bytes(bytes: &[u8]) -> String {
     let mut s = String::new();
     for byte in bytes {
-        write!(&mut s, "{:02x}", byte).expect("Unable to write");
+        write!(&mut s, "{byte:02x}").expect("Unable to write");
     }
     s
 }

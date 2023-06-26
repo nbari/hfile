@@ -42,7 +42,7 @@ pub async fn read(dir: &str, algo: Algorithm, size: bool) -> Result<()> {
                             println!("{}\t{}", s, p.clean().display(),)
                         }
                     }
-                    Err(e) => eprintln!("{}", e),
+                    Err(e) => eprintln!("{e}"),
                 }
             }));
 
@@ -108,7 +108,7 @@ pub async fn find_duplicates(
                                         value.clean().display(),
                                         path.clean().display()
                                     );
-                                    *value = PathBuf::from(dups)
+                                    *value = PathBuf::from(dups);
                                 })
                                 .or_insert_with(|| dups.into());
                         })
