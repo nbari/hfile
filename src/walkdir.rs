@@ -45,7 +45,7 @@ pub async fn read(dir: &str, algo: Algorithm, size: bool) -> Result<()> {
             if tasks.len() == threads {
                 if let Some(r) = tasks.next().await {
                     match r {
-                        Ok(_) => (),
+                        Ok(_) => {}
                         Err(e) => return Err(anyhow!("{}", e)),
                     }
                 }
