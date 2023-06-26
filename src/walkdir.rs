@@ -110,7 +110,7 @@ pub async fn find_duplicates(
                                     );
                                     *value = PathBuf::from(dups)
                                 })
-                                .or_insert(dups.into());
+                                .or_insert_with(|| dups.into());
                         })
                         .or_insert(p);
                 }
