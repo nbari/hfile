@@ -31,12 +31,12 @@ Options:
 
 Example:
 
-    $ hfile file
+    $ hfile test-file
     9a689455c65ca329fbcae5a1ae8725d88c7a6fbc82fd25bbcd9370ad9c272c50    test-file
 
 If need also the size of the file:
 
-    $ hfile -s <file>
+    $ hfile -s test-file
     9a689455c65ca329fbcae5a1ae8725d88c7a6fbc82fd25bbcd9370ad9c272c50    test-file    44B
 
 To recursively get hash of all files within a directory:
