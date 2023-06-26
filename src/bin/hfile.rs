@@ -62,7 +62,21 @@ async fn main() {
         Some(ref s) => {
             if args.duplicates {
                 match walkdir::find_duplicates(s, args.algorithm).await {
-                    Ok(_) => (),
+                    Ok(dup_map) => {
+                        let locked_map = dup_map.lock().unwrap();
+                        for (i, (k, v)) in locked_map.iter().enumerate() {
+                            println!("{k}");
+                            let value_str = v.clean().display().to_string();
+                            let split_value: Vec<&str> = value_str.split_whitespace().collect();
+                            for value in split_value {
+                                println!("\t{}", value);
+                            }
+                            if i < locked_map.len() - 1 {
+                                println!();
+                            }
+                        }
+                        drop(locked_map);
+                    }
                     Err(e) => {
                         eprintln!("{e}");
                         std::process::exit(1);
