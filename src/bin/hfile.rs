@@ -59,12 +59,24 @@ async fn main() {
                 }
             }
         }
-        Some(ref s) => match walkdir::read(s, args.algorithm, args.size).await {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("{e}");
-                std::process::exit(1);
+        Some(ref s) => {
+            if args.duplicates {
+                match walkdir::find_duplicates(s, args.algorithm).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                match walkdir::read(s, args.algorithm, args.size).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
             }
-        },
+        }
     }
 }
