@@ -39,7 +39,7 @@ pub async fn read(dir: &str, algo: Algorithm, size: bool) -> Result<()> {
                                 bytesize::to_string(file_size, true)
                             );
                         } else {
-                            println!("{}\t{}", s, p.clean().display(),)
+                            println!("{}\t{}", s, p.clean().display());
                         }
                     }
                     Err(e) => eprintln!("{e}"),
@@ -60,8 +60,8 @@ pub async fn read(dir: &str, algo: Algorithm, size: bool) -> Result<()> {
     // consume remaining tasks
     while let Some(r) = tasks.next().await {
         match r {
-            Ok(_) => {
-                // Task completed sucessfully
+            Ok(()) => {
+                // Task completed successfully
             }
             Err(e) => return Err(anyhow!("{}", e)),
         }
@@ -119,7 +119,7 @@ pub async fn find_duplicates(
             if tasks.len() == threads {
                 if let Some(r) = tasks.next().await {
                     match r {
-                        Ok(_) => {}
+                        Ok(()) => {}
                         Err(e) => return Err(anyhow!("{}", e)),
                     }
                 }
@@ -130,8 +130,8 @@ pub async fn find_duplicates(
     // consume remaining tasks
     while let Some(r) = tasks.next().await {
         match r {
-            Ok(_) => {
-                // Task completed sucessfully
+            Ok(()) => {
+                // Task completed successfully
             }
             Err(e) => return Err(anyhow!("{}", e)),
         }
