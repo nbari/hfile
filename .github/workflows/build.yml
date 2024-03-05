@@ -1,3 +1,4 @@
+---
 name: build
 
 on:
@@ -31,7 +32,7 @@ jobs:
       - run: cargo build --release --locked
 
       - name: compress build
-        run : gzip -f target/release/hfile
+        run: gzip -f target/release/hfile
 
       - name: Upload binaries to release
         uses: actions/upload-artifact@v2
@@ -39,7 +40,6 @@ jobs:
           if-no-files-found: error
           name: hfile
           path: target/release/hfile.gz
-
 
   deploy:
     runs-on: ubuntu-latest
