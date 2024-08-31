@@ -14,6 +14,8 @@ use std::{
 use tokio::task;
 use walkdir::WalkDir;
 
+/// # Errors
+/// if checksum fails
 pub async fn read(dir: &str, algo: Algorithm, size: bool) -> Result<()> {
     let mut tasks = FuturesUnordered::new();
 
@@ -49,7 +51,7 @@ pub async fn read(dir: &str, algo: Algorithm, size: bool) -> Result<()> {
             if tasks.len() == threads {
                 if let Some(r) = tasks.next().await {
                     match r {
-                        Ok(_) => {}
+                        Ok(()) => {}
                         Err(e) => return Err(anyhow!("{}", e)),
                     }
                 }
@@ -70,6 +72,10 @@ pub async fn read(dir: &str, algo: Algorithm, size: bool) -> Result<()> {
     Ok(())
 }
 
+/// # Panics
+/// Panics if the lock is poisoned
+/// # Errors
+/// Returns an error if the lock is poisoned
 pub async fn find_duplicates(
     dir: &str,
     algo: Algorithm,
@@ -93,8 +99,8 @@ pub async fn find_duplicates(
             let dup_map = Arc::clone(&dup_map);
             tasks.push(task::spawn(async move {
                 if let Ok((s, p)) = checksum(algo, path).await {
-                    let mut map = hash_map.lock().unwrap();
-                    let mut dmap = dup_map.lock().unwrap();
+                    let mut map = hash_map.lock().expect("Failed to lock hash_map");
+                    let mut dmap = dup_map.lock().expect("Failed to lock dup_map");
                     let hash = s.clone();
                     let path = p.clone();
                     map.entry(s)
