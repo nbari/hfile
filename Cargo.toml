@@ -1,6 +1,6 @@
 [package]
 name = "hfile"
-version = "0.3.6"
+version = "0.3.7"
 authors = ["Nicolas Embriz <nbari@tequila.io>"]
 description = "Hfile is a command-line interface (CLI) tool for generating hash values of files"
 documentation = "https://github.com/nbari/hfile"
@@ -19,7 +19,7 @@ bytesize = "1"
 clap = { version = "4", features = ["cargo", "derive"] }
 futures = "0.3"
 md5 = "0.7"
-num_cpus = "1.15"
+num_cpus = "1.16"
 path-clean = "1"
 ring = "0.17"
 tokio = { version = "1", features = ["full"] }
