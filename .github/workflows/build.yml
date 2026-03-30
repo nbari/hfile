@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - '*'
   workflow_dispatch:
 
 env:
@@ -16,41 +14,32 @@ jobs:
   test:
     uses: ./.github/workflows/test.yml
     with:
-      branch: main
+      ref: ${{ github.ref_name }}
 
   build:
     runs-on: ubuntu-latest
     needs: test
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
-      - name: build
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - run: cargo build --release --locked
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: compress build
-        run: gzip -f target/release/hfile
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
 
-      - name: Upload binaries to release
-        uses: actions/upload-artifact@v4
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Compress binary
+        run: gzip -f -k target/release/hfile
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
         with:
           if-no-files-found: error
-          name: hfile
-          path: target/release/hfile.gz
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: hfile
-
-      - name: Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: hfile.gz
+          name: hfile-release
+          path: |
+            target/release/hfile
+            target/release/hfile.gz

@@ -3,157 +3,209 @@ use crate::{
     command::Algorithm,
     hash::{blake3, md5, sha1, sha256, sha384, sha512},
 };
-use anyhow::{anyhow, Result};
-use futures::stream::{FuturesUnordered, StreamExt};
+use anyhow::{Context, Result, anyhow};
 use path_clean::PathClean;
 use std::{
     collections::BTreeMap,
-    path::PathBuf,
-    sync::{Arc, Mutex},
+    path::{Path, PathBuf},
+    sync::{
+        Arc, Mutex,
+        mpsc::{self, Receiver, SyncSender},
+    },
+    thread,
 };
-use tokio::task;
 use walkdir::WalkDir;
 
-/// # Errors
-/// if checksum fails
-pub async fn read(dir: &str, algo: Algorithm, size: bool) -> Result<()> {
-    let mut tasks = FuturesUnordered::new();
+struct HashResult {
+    hash: String,
+    path: PathBuf,
+    file_size: Option<u64>,
+}
 
-    let threads = if num_cpus::get() - 1 == 0 {
-        1
-    } else {
-        num_cpus::get() - 1
+enum WorkerResult {
+    Hashed(HashResult),
+    Error(anyhow::Error),
+}
+
+#[must_use]
+fn worker_threads() -> usize {
+    thread::available_parallelism().map_or(1, |count| count.get().saturating_sub(1).max(1))
+}
+
+#[must_use]
+fn queue_capacity(threads: usize) -> usize {
+    threads.saturating_mul(2).max(1)
+}
+
+fn checksum(algo: Algorithm, path: &Path) -> Result<String> {
+    let hash = match algo {
+        Algorithm::Md5 => md5(path),
+        Algorithm::Sha1 => sha1(path),
+        Algorithm::Sha256 => sha256(path),
+        Algorithm::Sha384 => sha384(path),
+        Algorithm::Sha512 => sha512(path),
+        Algorithm::Blake => blake3(path),
     };
+
+    hash.with_context(|| format!("failed to hash {}", path.display()))
+}
+
+fn next_path(receiver: &Mutex<Receiver<PathBuf>>) -> Result<Option<PathBuf>> {
+    let message = receiver
+        .lock()
+        .map_err(|error| anyhow!(error.to_string()))?
+        .recv();
+
+    match message {
+        Ok(path) => Ok(Some(path)),
+        Err(_) => Ok(None),
+    }
+}
+
+fn spawn_workers(
+    algo: Algorithm,
+    include_size: bool,
+    task_receiver: &Arc<Mutex<Receiver<PathBuf>>>,
+    result_sender: &mpsc::Sender<WorkerResult>,
+) -> Vec<thread::JoinHandle<()>> {
+    (0..worker_threads())
+        .map(|_| {
+            let task_receiver = Arc::clone(task_receiver);
+            let result_sender = result_sender.clone();
+            thread::spawn(move || {
+                loop {
+                    let Some(path) = (match next_path(&task_receiver) {
+                        Ok(path) => path,
+                        Err(error) => {
+                            let _ = result_sender.send(WorkerResult::Error(error));
+                            return;
+                        }
+                    }) else {
+                        return;
+                    };
+
+                    let result = checksum(algo, &path).map(|hash| HashResult {
+                        hash,
+                        file_size: include_size.then(|| get_file_size(&path)),
+                        path,
+                    });
+
+                    let message = match result {
+                        Ok(result) => WorkerResult::Hashed(result),
+                        Err(error) => WorkerResult::Error(error),
+                    };
+
+                    if result_sender.send(message).is_err() {
+                        return;
+                    }
+                }
+            })
+        })
+        .collect()
+}
+
+fn queue_paths(dir: &str, sender: &SyncSender<PathBuf>) -> Result<usize> {
+    let mut queued = 0;
 
     for entry in WalkDir::new(dir) {
         let entry = entry?;
-        let path = entry.path().to_owned();
+        let path = entry.path();
         if path.is_file() {
-            tasks.push(task::spawn(async move {
-                match checksum(algo, path).await {
-                    Ok((s, p)) => {
-                        if size {
-                            let file_size = get_file_size(&p);
-                            println!(
-                                "{}\t{}\t{}",
-                                s,
-                                p.clean().display(),
-                                bytesize::to_string(file_size, true)
-                            );
-                        } else {
-                            println!("{}\t{}", s, p.clean().display());
-                        }
-                    }
-                    Err(e) => eprintln!("{e}"),
-                }
-            }));
-
-            if tasks.len() == threads {
-                if let Some(r) = tasks.next().await {
-                    match r {
-                        Ok(()) => {}
-                        Err(e) => return Err(anyhow!("{}", e)),
-                    }
-                }
-            }
+            sender
+                .send(path.to_owned())
+                .map_err(|_| anyhow!("worker queue closed unexpectedly"))?;
+            queued += 1;
         }
     }
 
-    // consume remaining tasks
-    while let Some(r) = tasks.next().await {
-        match r {
-            Ok(()) => {
-                // Task completed successfully
-            }
-            Err(e) => return Err(anyhow!("{}", e)),
-        }
+    Ok(queued)
+}
+
+fn print_hash_result(result: &HashResult) {
+    if let Some(file_size) = result.file_size {
+        println!(
+            "{}\t{}\t{}",
+            result.hash,
+            result.path.clean().display(),
+            bytesize::to_string(file_size, true)
+        );
+    } else {
+        println!("{}\t{}", result.hash, result.path.clean().display());
+    }
+}
+
+fn join_workers(handles: Vec<thread::JoinHandle<()>>) -> Result<()> {
+    for handle in handles {
+        handle
+            .join()
+            .map_err(|_| anyhow!("worker thread panicked"))?;
     }
 
     Ok(())
 }
 
-/// # Panics
-/// Panics if the lock is poisoned
 /// # Errors
-/// Returns an error if the lock is poisoned
-pub async fn find_duplicates(
-    dir: &str,
-    algo: Algorithm,
-) -> Result<Arc<Mutex<BTreeMap<String, PathBuf>>>> {
-    let hash_map: Arc<Mutex<BTreeMap<String, PathBuf>>> = Arc::new(Mutex::new(BTreeMap::new()));
-    let dup_map: Arc<Mutex<BTreeMap<String, PathBuf>>> = Arc::new(Mutex::new(BTreeMap::new()));
+/// Returns an error if the directory cannot be traversed or a worker fails.
+pub fn read(dir: &str, algo: Algorithm, size: bool) -> Result<()> {
+    let threads = worker_threads();
+    let (task_sender, task_receiver) = mpsc::sync_channel(queue_capacity(threads));
+    let task_receiver = Arc::new(Mutex::new(task_receiver));
+    let (result_sender, result_receiver) = mpsc::channel();
+    let handles = spawn_workers(algo, size, &task_receiver, &result_sender);
+    let queued = queue_paths(dir, &task_sender)?;
+    drop(task_sender);
 
-    let mut tasks = FuturesUnordered::new();
-
-    let threads = if num_cpus::get() - 1 == 0 {
-        1
-    } else {
-        num_cpus::get() - 1
-    };
-
-    for entry in WalkDir::new(dir) {
-        let entry = entry?;
-        let path = entry.path().to_owned();
-        if path.is_file() {
-            let hash_map = Arc::clone(&hash_map);
-            let dup_map = Arc::clone(&dup_map);
-            tasks.push(task::spawn(async move {
-                if let Ok((s, p)) = checksum(algo, path).await {
-                    let mut map = hash_map.lock().expect("Failed to lock hash_map");
-                    let mut dmap = dup_map.lock().expect("Failed to lock dup_map");
-                    let hash = s.clone();
-                    let path = p.clone();
-                    map.entry(s)
-                        .and_modify(|file| {
-                            let dups =
-                                format!("{} {}", file.clean().display(), path.clean().display());
-                            dmap.entry(hash)
-                                .and_modify(|value| {
-                                    let dups = format!(
-                                        "{} {}",
-                                        value.clean().display(),
-                                        path.clean().display()
-                                    );
-                                    *value = PathBuf::from(dups);
-                                })
-                                .or_insert_with(|| dups.into());
-                        })
-                        .or_insert(p);
-                }
-            }));
-
-            if tasks.len() == threads {
-                if let Some(r) = tasks.next().await {
-                    match r {
-                        Ok(()) => {}
-                        Err(e) => return Err(anyhow!("{}", e)),
-                    }
-                }
-            }
+    for _ in 0..queued {
+        match result_receiver
+            .recv()
+            .map_err(|_| anyhow!("worker result channel closed unexpectedly"))?
+        {
+            WorkerResult::Hashed(result) => print_hash_result(&result),
+            WorkerResult::Error(error) => eprintln!("{error}"),
         }
     }
 
-    // consume remaining tasks
-    while let Some(r) = tasks.next().await {
-        match r {
-            Ok(()) => {
-                // Task completed successfully
-            }
-            Err(e) => return Err(anyhow!("{}", e)),
-        }
-    }
-
-    Ok(dup_map)
+    join_workers(handles)
 }
 
-async fn checksum(algo: Algorithm, path: PathBuf) -> Result<(String, PathBuf)> {
-    let hash = match algo {
-        Algorithm::Md5 => md5(&path)?,
-        Algorithm::Sha1 => sha1(&path)?,
-        Algorithm::Sha256 => sha256(&path)?,
-        Algorithm::Sha384 => sha384(&path)?,
-        Algorithm::Sha512 => sha512(&path)?,
-        Algorithm::Blake => blake3(&path)?,
-    };
-    Ok((hash, path))
+/// # Errors
+/// Returns an error if the directory cannot be traversed or a worker fails.
+pub fn find_duplicates(dir: &str, algo: Algorithm) -> Result<BTreeMap<String, Vec<PathBuf>>> {
+    let threads = worker_threads();
+    let (task_sender, task_receiver) = mpsc::sync_channel(queue_capacity(threads));
+    let task_receiver = Arc::new(Mutex::new(task_receiver));
+    let (result_sender, result_receiver) = mpsc::channel();
+    let handles = spawn_workers(algo, false, &task_receiver, &result_sender);
+    let queued = queue_paths(dir, &task_sender)?;
+    drop(task_sender);
+
+    let mut seen = BTreeMap::<String, PathBuf>::new();
+    let mut duplicates = BTreeMap::<String, Vec<PathBuf>>::new();
+
+    for _ in 0..queued {
+        match result_receiver
+            .recv()
+            .map_err(|_| anyhow!("worker result channel closed unexpectedly"))?
+        {
+            WorkerResult::Hashed(result) => {
+                if let Some(existing_path) = seen.get(&result.hash) {
+                    let paths = duplicates
+                        .entry(result.hash.clone())
+                        .or_insert_with(|| vec![existing_path.clone()]);
+                    paths.push(result.path);
+                } else {
+                    seen.insert(result.hash, result.path);
+                }
+            }
+            WorkerResult::Error(error) => eprintln!("{error}"),
+        }
+    }
+
+    join_workers(handles)?;
+
+    for paths in duplicates.values_mut() {
+        paths.sort();
+    }
+
+    Ok(duplicates)
 }

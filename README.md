@@ -3,6 +3,9 @@
 **hfile** is a command-line interface (CLI) tool for generating cryptographic hashes
 from files while also facilitating the identification of duplicates.
 
+For regular files, the default BLAKE3 path uses memory-mapped, multithreaded hashing
+to stay close to `b3sum` throughput while keeping the CLI output unchanged.
+
 Supported algorithms:
 * Blake3 (default)
 * md5
@@ -48,3 +51,14 @@ Finding duplicates:
 
     $ hfile -d -p $HOME
     will only print duplicates found
+
+Performance comparison:
+
+```sh
+just compare-blake3
+just compare-blake3-native
+```
+
+`compare-blake3` benchmarks the portable release build against `b3sum` on the fixture
+file and a generated 256 MiB regular file. `compare-blake3-native` reruns the same
+comparison with `target-cpu=native` for local headroom checks.

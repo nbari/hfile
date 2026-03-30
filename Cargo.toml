@@ -1,6 +1,6 @@
 [package]
 name = "hfile"
-version = "0.3.7"
+version = "0.4.0"
 authors = ["Nicolas Embriz <nbari@tequila.io>"]
 description = "Hfile is a command-line interface (CLI) tool for generating hash values of files"
 documentation = "https://github.com/nbari/hfile"
@@ -10,17 +10,54 @@ readme = "README.md"
 keywords = ["hash", "cli", "fingerprint", "checksum"]
 categories = ["command-line-utilities", "cryptography"]
 license = "BSD-3-Clause"
-edition = "2021"
+edition = "2024"
+
+[lints.rust]
+warnings = "deny"
+
+[lints.clippy]
+# Allow unstable/opinionated lints (lower priority so individual lints can override)
+nursery = { level = "allow", priority = -1 }
+
+# Enforce pedantic lints
+pedantic = "deny"
+
+# Core lint groups
+all = "deny"
+correctness = "deny"
+suspicious = "deny"
+perf = "deny"
+complexity = "deny"
+
+# Safety-critical lints
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+await_holding_lock = "deny"
+
+# Performance + memory reliability
+needless_borrow = "deny"
+needless_collect = "deny"
+large_stack_arrays = "deny"
 
 [dependencies]
 anyhow = "1"
-blake3 = "1"
+blake3 = { version = "1", features = ["mmap", "rayon"] }
 bytesize = "1"
 clap = { version = "4", features = ["cargo", "derive"] }
-futures = "0.3"
 md5 = "0.7"
-num_cpus = "1.16"
 path-clean = "1"
 ring = "0.17"
-tokio = { version = "1", features = ["full"] }
 walkdir = "2"
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/hfile", dest = "/usr/bin/hfile", mode = "0755" },
+]
+
+[package.metadata.deb]
+assets = [
+  ["target/release/hfile", "/usr/bin/hfile", "755"],
+]
+depends = ""

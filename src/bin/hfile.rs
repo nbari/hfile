@@ -1,5 +1,5 @@
+use anyhow::{Context, Result, bail};
 use clap::Parser;
-use hfile::get_file_size;
 use hfile::{
     command::{Algorithm, Args},
     hash, walkdir,
@@ -7,97 +7,78 @@ use hfile::{
 use path_clean::PathClean;
 use std::{fs, path::Path};
 
-#[tokio::main]
-async fn main() {
+fn hash_file(algo: Algorithm, file: &Path) -> Result<String> {
+    let hash = match algo {
+        Algorithm::Md5 => hash::md5(file),
+        Algorithm::Sha1 => hash::sha1(file),
+        Algorithm::Sha256 => hash::sha256(file),
+        Algorithm::Sha384 => hash::sha384(file),
+        Algorithm::Sha512 => hash::sha512(file),
+        Algorithm::Blake => hash::blake3(file),
+    };
+
+    hash.with_context(|| format!("failed to hash {}", file.display()))
+}
+
+fn hash_single_file(args: &Args) -> Result<()> {
+    let Some(file_arg) = &args.file else {
+        return Ok(());
+    };
+
+    let file = Path::new(file_arg);
+    let metadata = fs::metadata(file)
+        .with_context(|| format!("failed to read metadata for {}", file.display()))?;
+    if metadata.is_dir() {
+        bail!("Use option -p to pass a directory");
+    }
+
+    let hash = hash_file(args.algorithm, file)?;
+    if args.size {
+        println!(
+            "{}\t{}\t{}",
+            hash,
+            file.clean().display(),
+            bytesize::to_string(metadata.len(), true)
+        );
+    } else {
+        println!("{hash}\t{}", file.clean().display());
+    }
+
+    Ok(())
+}
+
+fn hash_path(args: &Args, path: &str) -> Result<()> {
+    if args.duplicates {
+        let duplicates = walkdir::find_duplicates(path, args.algorithm)?;
+        for (index, (hash, paths)) in duplicates.iter().enumerate() {
+            println!("{hash}");
+            for path in paths {
+                println!("\t{}", path.clean().display());
+            }
+
+            if index + 1 < duplicates.len() {
+                println!();
+            }
+        }
+    } else {
+        walkdir::read(path, args.algorithm, args.size)?;
+    }
+
+    Ok(())
+}
+
+fn run() -> Result<()> {
     let args = Args::parse();
 
-    match args.path {
-        None => {
-            if let Some(args_file) = &args.file {
-                match fs::metadata(args_file) {
-                    Ok(metadata) => {
-                        if metadata.is_dir() {
-                            eprintln!("Use option -p to pass a directory");
-                            std::process::exit(1);
-                        } else {
-                            let file = Path::new(args_file);
-                            let hash = match args.algorithm {
-                                Algorithm::Md5 => hash::md5(file),
-                                Algorithm::Sha1 => hash::sha1(file),
-                                Algorithm::Sha256 => hash::sha256(file),
-                                Algorithm::Sha384 => hash::sha384(file),
-                                Algorithm::Sha512 => hash::sha512(file),
-                                Algorithm::Blake => hash::blake3(file),
-                            };
+    match &args.path {
+        Some(path) => hash_path(&args, path),
+        None => hash_single_file(&args),
+    }
+}
 
-                            match hash {
-                                Ok(h) => {
-                                    if args.size {
-                                        let file_size = get_file_size(file);
-                                        println!(
-                                            "{}\t{}\t{}",
-                                            h,
-                                            file.clean().display(),
-                                            bytesize::to_string(file_size, true)
-                                        )
-                                    } else {
-                                        println!("{h}\t{}", file.clean().display(),)
-                                    }
-                                }
-                                Err(e) => {
-                                    eprintln!("{e}");
-                                    std::process::exit(1);
-                                }
-                            }
-                        }
-                    }
-
-                    Err(e) => {
-                        eprintln!("{e}");
-                        std::process::exit(1);
-                    }
-                }
-            }
-        }
-
-        Some(ref s) => {
-            if args.duplicates {
-                match walkdir::find_duplicates(s, args.algorithm).await {
-                    Ok(dup_map) => match dup_map.lock() {
-                        Ok(locked_map) => {
-                            for (i, (k, v)) in locked_map.iter().enumerate() {
-                                println!("{k}");
-                                let value_str = v.clean().display().to_string();
-                                let split_value: Vec<&str> = value_str.split_whitespace().collect();
-                                for value in split_value {
-                                    println!("\t{}", value);
-                                }
-                                if i < locked_map.len() - 1 {
-                                    println!();
-                                }
-                            }
-                        }
-
-                        Err(e) => {
-                            eprintln!("{e}");
-                            std::process::exit(1);
-                        }
-                    },
-
-                    Err(e) => {
-                        eprintln!("{e}");
-                        std::process::exit(1);
-                    }
-                }
-            } else {
-                match walkdir::read(s, args.algorithm, args.size).await {
-                    Ok(_) => (),
-                    Err(e) => {
-                        eprintln!("{e}");
-                        std::process::exit(1);
-                    }
-                }
-            }
-        }
+fn main() {
+    if let Err(error) = run() {
+        eprintln!("{error}");
+        std::process::exit(1);
     }
 }
