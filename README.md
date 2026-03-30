@@ -26,31 +26,69 @@ Arguments:
 Options:
   -a, --algorithm <ALGORITHM>  [default: blake] [possible values: md5, sha1, sha256, sha384, sha512, blake]
   -s, --size                   Show size of file
+  -c, --check <CHECK>          Read checksums from file and verify them
   -d, --duplicates             Find duplicates
   -p, --path <PATH>            Create hash for all files under path
   -h, --help                   Print help
   -V, --version                Print version
 ```
 
-Example:
+## Examples
 
-    $ hfile test-file
-    9a689455c65ca329fbcae5a1ae8725d88c7a6fbc82fd25bbcd9370ad9c272c50    test-file
+Default BLAKE3 hash for a single file:
 
-If need also the size of the file:
+```sh
+hfile tests/test-file
+9a689455c65ca329fbcae5a1ae8725d88c7a6fbc82fd25bbcd9370ad9c272c50	tests/test-file
+```
 
-    $ hfile -s test-file
-    9a689455c65ca329fbcae5a1ae8725d88c7a6fbc82fd25bbcd9370ad9c272c50    test-file    44B
+Show the hash and file size:
 
-To recursively get hash of all files within a directory:
+```sh
+hfile -s tests/test-file
+9a689455c65ca329fbcae5a1ae8725d88c7a6fbc82fd25bbcd9370ad9c272c50	tests/test-file	44 B
+```
 
-    $ hfile -p $HOME
-    <hash> <file path>
+Use a different algorithm:
 
-Finding duplicates:
+```sh
+hfile -a sha256 tests/test-file
+c03905fcdab297513a620ec81ed46ca44ddb62d41cbbd83eb4a5a3592be26a69	tests/test-file
+```
 
-    $ hfile -d -p $HOME
-    will only print duplicates found
+Hash every file under a directory:
+
+```sh
+hfile -p tests
+```
+
+Print only duplicate files found under a directory:
+
+```sh
+hfile -d -p "$HOME"
+```
+
+Create a SHA-256 checksum file that GNU `sha256sum -c` can verify:
+
+```sh
+hfile -a sha256 tests/test-file > SHA256SUMS
+sha256sum -c SHA256SUMS
+```
+
+Create and verify checksums for all files under a directory:
+
+```sh
+hfile -a sha256 -p tests > SHA256SUMS
+sha256sum -c SHA256SUMS
+```
+
+Verify the same checksum file with `hfile`:
+
+```sh
+hfile -a sha256 -c SHA256SUMS
+```
+
+Do not use `-s` when creating checksum files, since the extra size column is for display only.
 
 Performance comparison:
 

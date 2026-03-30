@@ -9,7 +9,7 @@ pub struct Args {
     #[clap(short = 's', long = "size", help = "Show size of file")]
     pub size: bool,
 
-    #[clap(required_unless_present_any(["path", "duplicates"]))]
+    #[clap(required_unless_present_any(["path", "duplicates", "check"]))]
     pub file: Option<String>,
 
     #[clap(
@@ -26,6 +26,14 @@ pub struct Args {
         help = "Create hash for all files under path"
     )]
     pub path: Option<String>,
+
+    #[clap(
+        short = 'c',
+        long = "check",
+        help = "Read checksums from file and verify them",
+        conflicts_with_all = ["path", "duplicates", "size", "file"]
+    )]
+    pub check: Option<String>,
 }
 
 #[derive(ValueEnum, Copy, Clone, Debug)]
@@ -36,4 +44,17 @@ pub enum Algorithm {
     Sha384,
     Sha512,
     Blake,
+}
+
+impl Algorithm {
+    #[must_use]
+    pub const fn digest_len(self) -> usize {
+        match self {
+            Self::Md5 => 32,
+            Self::Sha1 => 40,
+            Self::Sha256 | Self::Blake => 64,
+            Self::Sha384 => 96,
+            Self::Sha512 => 128,
+        }
+    }
 }

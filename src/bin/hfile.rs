@@ -1,23 +1,12 @@
 use anyhow::{Context, Result, bail};
 use clap::Parser;
-use hfile::{
-    command::{Algorithm, Args},
-    hash, walkdir,
-};
+use hfile::{checksum, command::Args, hash, walkdir};
 use path_clean::PathClean;
 use std::{fs, path::Path};
 
-fn hash_file(algo: Algorithm, file: &Path) -> Result<String> {
-    let hash = match algo {
-        Algorithm::Md5 => hash::md5(file),
-        Algorithm::Sha1 => hash::sha1(file),
-        Algorithm::Sha256 => hash::sha256(file),
-        Algorithm::Sha384 => hash::sha384(file),
-        Algorithm::Sha512 => hash::sha512(file),
-        Algorithm::Blake => hash::blake3(file),
-    };
-
-    hash.with_context(|| format!("failed to hash {}", file.display()))
+fn check_checksums(args: &Args, checksum_file: &str) -> Result<()> {
+    checksum::check(Path::new(checksum_file), args.algorithm)?;
+    Ok(())
 }
 
 fn hash_single_file(args: &Args) -> Result<()> {
@@ -32,7 +21,7 @@ fn hash_single_file(args: &Args) -> Result<()> {
         bail!("Use option -p to pass a directory");
     }
 
-    let hash = hash_file(args.algorithm, file)?;
+    let hash = hash::hash_file(args.algorithm, file)?;
     if args.size {
         println!(
             "{}\t{}\t{}",
@@ -70,9 +59,13 @@ fn hash_path(args: &Args, path: &str) -> Result<()> {
 fn run() -> Result<()> {
     let args = Args::parse();
 
-    match &args.path {
-        Some(path) => hash_path(&args, path),
-        None => hash_single_file(&args),
+    if let Some(checksum_file) = &args.check {
+        check_checksums(&args, checksum_file)
+    } else {
+        match &args.path {
+            Some(path) => hash_path(&args, path),
+            None => hash_single_file(&args),
+        }
     }
 }
 

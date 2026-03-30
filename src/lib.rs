@@ -1,3 +1,4 @@
+pub mod checksum;
 pub mod command;
 pub mod hash;
 pub mod walkdir;

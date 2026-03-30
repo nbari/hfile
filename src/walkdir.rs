@@ -1,13 +1,10 @@
 use crate::get_file_size;
-use crate::{
-    command::Algorithm,
-    hash::{blake3, md5, sha1, sha256, sha384, sha512},
-};
-use anyhow::{Context, Result, anyhow};
+use crate::{command::Algorithm, hash};
+use anyhow::{Result, anyhow};
 use path_clean::PathClean;
 use std::{
     collections::BTreeMap,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{
         Arc, Mutex,
         mpsc::{self, Receiver, SyncSender},
@@ -35,19 +32,6 @@ fn worker_threads() -> usize {
 #[must_use]
 fn queue_capacity(threads: usize) -> usize {
     threads.saturating_mul(2).max(1)
-}
-
-fn checksum(algo: Algorithm, path: &Path) -> Result<String> {
-    let hash = match algo {
-        Algorithm::Md5 => md5(path),
-        Algorithm::Sha1 => sha1(path),
-        Algorithm::Sha256 => sha256(path),
-        Algorithm::Sha384 => sha384(path),
-        Algorithm::Sha512 => sha512(path),
-        Algorithm::Blake => blake3(path),
-    };
-
-    hash.with_context(|| format!("failed to hash {}", path.display()))
 }
 
 fn next_path(receiver: &Mutex<Receiver<PathBuf>>) -> Result<Option<PathBuf>> {
@@ -84,7 +68,7 @@ fn spawn_workers(
                         return;
                     };
 
-                    let result = checksum(algo, &path).map(|hash| HashResult {
+                    let result = hash::hash_file(algo, &path).map(|hash| HashResult {
                         hash,
                         file_size: include_size.then(|| get_file_size(&path)),
                         path,

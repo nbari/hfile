@@ -3,6 +3,7 @@ use hfile::{command::Algorithm, hash, walkdir};
 use std::{
     fs,
     path::{Path, PathBuf},
+    process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -31,6 +32,15 @@ impl Drop for TestDir {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.path);
     }
+}
+
+fn hfile_bin() -> &'static str {
+    env!("CARGO_BIN_EXE_hfile")
+}
+
+fn path_str(path: &Path) -> Result<&str> {
+    path.to_str()
+        .ok_or_else(|| anyhow!("path is not valid UTF-8: {}", path.display()))
 }
 
 #[test]
@@ -122,6 +132,80 @@ fn find_duplicates_keeps_paths_with_spaces() -> Result<()> {
             .iter()
             .any(|path| path.ends_with("dup 2.txt"))
     );
+
+    Ok(())
+}
+
+#[test]
+fn check_accepts_manifest_generated_by_hfile() -> Result<()> {
+    let test_dir = TestDir::new("check-ok")?;
+    let file = test_dir.path().join("sample.txt");
+    let checksums = test_dir.path().join("SHA256SUMS");
+    fs::write(&file, "hello world\n")?;
+
+    let generated = Command::new(hfile_bin())
+        .args(["-a", "sha256", path_str(&file)?])
+        .output()?;
+    assert!(generated.status.success());
+    fs::write(&checksums, generated.stdout)?;
+
+    let checked = Command::new(hfile_bin())
+        .args(["-a", "sha256", "-c", path_str(&checksums)?])
+        .output()?;
+    assert!(checked.status.success());
+
+    let stdout = String::from_utf8(checked.stdout).map_err(|error| anyhow!(error.to_string()))?;
+    assert!(stdout.contains(": OK"));
+
+    Ok(())
+}
+
+#[test]
+fn check_accepts_gnu_style_manifest() -> Result<()> {
+    let test_dir = TestDir::new("check-gnu")?;
+    let file = test_dir.path().join("gnu.txt");
+    let checksums = test_dir.path().join("SHA256SUMS");
+    fs::write(&file, "hello")?;
+    fs::write(
+        &checksums,
+        format!(
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824  {}\n",
+            file.display()
+        ),
+    )?;
+
+    let checked = Command::new(hfile_bin())
+        .args(["-a", "sha256", "-c", path_str(&checksums)?])
+        .output()?;
+    assert!(checked.status.success());
+
+    let stdout = String::from_utf8(checked.stdout).map_err(|error| anyhow!(error.to_string()))?;
+    assert!(stdout.contains(": OK"));
+
+    Ok(())
+}
+
+#[test]
+fn check_fails_when_digest_does_not_match() -> Result<()> {
+    let test_dir = TestDir::new("check-failed")?;
+    let file = test_dir.path().join("bad.txt");
+    let checksums = test_dir.path().join("SHA256SUMS");
+    fs::write(&file, "hello")?;
+    fs::write(
+        &checksums,
+        format!(
+            "0000000000000000000000000000000000000000000000000000000000000000\t{}\n",
+            file.display()
+        ),
+    )?;
+
+    let checked = Command::new(hfile_bin())
+        .args(["-a", "sha256", "-c", path_str(&checksums)?])
+        .output()?;
+    assert!(!checked.status.success());
+
+    let stdout = String::from_utf8(checked.stdout).map_err(|error| anyhow!(error.to_string()))?;
+    assert!(stdout.contains(": FAILED"));
 
     Ok(())
 }

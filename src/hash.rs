@@ -1,5 +1,6 @@
-use anyhow::{Result, anyhow};
-use ring::digest::{Context, SHA1_FOR_LEGACY_USE_ONLY, SHA256, SHA384, SHA512};
+use crate::command::Algorithm;
+use anyhow::{Context, Result, anyhow};
+use ring::digest::{Context as DigestContext, SHA1_FOR_LEGACY_USE_ONLY, SHA256, SHA384, SHA512};
 use std::{io::Read, path::Path};
 
 const BUFFER_SIZE: usize = 1024 * 1024;
@@ -26,6 +27,21 @@ fn read_file_chunks(file_path: &Path, mut on_chunk: impl FnMut(&[u8])) -> Result
 
 /// # Errors
 /// Returns an error if the file cannot be opened or read.
+pub fn hash_file(algo: Algorithm, file_path: &Path) -> Result<String> {
+    let hash = match algo {
+        Algorithm::Md5 => md5(file_path),
+        Algorithm::Sha1 => sha1(file_path),
+        Algorithm::Sha256 => sha256(file_path),
+        Algorithm::Sha384 => sha384(file_path),
+        Algorithm::Sha512 => sha512(file_path),
+        Algorithm::Blake => blake3(file_path),
+    };
+
+    hash.with_context(|| format!("failed to hash {}", file_path.display()))
+}
+
+/// # Errors
+/// Returns an error if the file cannot be opened or read.
 pub fn blake3(file_path: &Path) -> Result<String> {
     let mut hasher = blake3::Hasher::new();
     hasher.update_mmap_rayon(file_path)?;
@@ -43,7 +59,7 @@ pub fn md5(file_path: &Path) -> Result<String> {
 /// # Errors
 /// Returns an error if the file cannot be opened or read.
 pub fn sha1(file_path: &Path) -> Result<String> {
-    let mut context = Context::new(&SHA1_FOR_LEGACY_USE_ONLY);
+    let mut context = DigestContext::new(&SHA1_FOR_LEGACY_USE_ONLY);
     read_file_chunks(file_path, |chunk| context.update(chunk))?;
     Ok(write_hex_bytes(context.finish().as_ref()))
 }
@@ -51,7 +67,7 @@ pub fn sha1(file_path: &Path) -> Result<String> {
 /// # Errors
 /// Returns an error if the file cannot be opened or read.
 pub fn sha256(file_path: &Path) -> Result<String> {
-    let mut context = Context::new(&SHA256);
+    let mut context = DigestContext::new(&SHA256);
     read_file_chunks(file_path, |chunk| context.update(chunk))?;
     Ok(write_hex_bytes(context.finish().as_ref()))
 }
@@ -59,7 +75,7 @@ pub fn sha256(file_path: &Path) -> Result<String> {
 /// # Errors
 /// Returns an error if the file cannot be opened or read.
 pub fn sha384(file_path: &Path) -> Result<String> {
-    let mut context = Context::new(&SHA384);
+    let mut context = DigestContext::new(&SHA384);
     read_file_chunks(file_path, |chunk| context.update(chunk))?;
     Ok(write_hex_bytes(context.finish().as_ref()))
 }
@@ -67,7 +83,7 @@ pub fn sha384(file_path: &Path) -> Result<String> {
 /// # Errors
 /// Returns an error if the file cannot be opened or read.
 pub fn sha512(file_path: &Path) -> Result<String> {
-    let mut context = Context::new(&SHA512);
+    let mut context = DigestContext::new(&SHA512);
     read_file_chunks(file_path, |chunk| context.update(chunk))?;
     Ok(write_hex_bytes(context.finish().as_ref()))
 }

@@ -1,4 +1,4 @@
-default:
+default: test
   @just --list
 
 # Verification suite (matches local pre-PR checks)
