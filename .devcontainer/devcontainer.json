@@ -1,19 +1,33 @@
 {
-  "name": "Rust",
-  "extensions": [
-    "cschleiden.vscode-github-actions",
-    "ms-vsliveshare.vsliveshare",
-    "matklad.rust-analyzer",
-    "serayuzgur.crates",
-    "vadimcn.vscode-lldb"
-  ],
-  "dockerFile": "Dockerfile",
-  "settings": {
-    "editor.formatOnSave": true,
-    "terminal.integrated.shell.linux": "/usr/bin/zsh",
-    "files.exclude": {
-      "**/CODE_OF_CONDUCT.md": true,
-      "**/LICENSE": true
+  "name": "hfile",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceFolder": "/workspaces/hfile",
+  "containerEnv": {
+    "CARGO_TERM_COLOR": "always",
+    "EDITOR": "nvim",
+    "VISUAL": "nvim",
+    "SHELL": "/usr/bin/zsh"
+  },
+  "updateContentCommand": "cargo fetch --locked",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "cschleiden.vscode-github-actions",
+        "matklad.rust-analyzer",
+        "serayuzgur.crates",
+        "vadimcn.vscode-lldb"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "files.exclude": {
+          "**/CODE_OF_CONDUCT.md": true,
+          "**/LICENSE": true
+        }
+      }
     }
-  }
+  },
+  "postCreateCommand": "rustc --version && cargo --version && just --version && nvim --version | head -n 1"
 }
