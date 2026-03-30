@@ -122,6 +122,9 @@ fn find_duplicates_keeps_paths_with_spaces() -> Result<()> {
         .ok_or_else(|| anyhow!("missing duplicate entry"))?;
 
     assert_eq!(duplicate_paths.len(), 2);
+    let mut expected_paths = duplicate_paths.clone();
+    expected_paths.sort();
+    assert_eq!(duplicate_paths, &expected_paths);
     assert!(
         duplicate_paths
             .iter()

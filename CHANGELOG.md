@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-03-30
+
+### Fixed
+- Made `-p` stream hashed file output as work completes instead of waiting for the full directory walk, which also reduces result buffering during large scans.
+- Reduced recursive hashing overhead by using bounded crossbeam work queues, buffered output, and raw digest keys for duplicate tracking.
+- Made recursive BLAKE3 hashing use a size-aware path so directory workers avoid Rayon overhead on small files while keeping the fast parallel path for large files.
+
 ## [0.5.0] - 2026-03-30
 
 ### Added

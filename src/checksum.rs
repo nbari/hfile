@@ -2,7 +2,7 @@ use crate::{command::Algorithm, hash};
 use anyhow::{Context, Result, anyhow, bail};
 use std::{
     fs::File,
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, BufWriter, Write},
     path::{Path, PathBuf},
 };
 
@@ -97,6 +97,8 @@ pub fn check(checksum_file: &Path, algo: Algorithm) -> Result<CheckSummary> {
     let file = File::open(checksum_file)
         .with_context(|| format!("failed to open {}", checksum_file.display()))?;
     let reader = BufReader::new(file);
+    let stdout = std::io::stdout();
+    let mut output = BufWriter::new(stdout.lock());
     let mut summary = CheckSummary::default();
 
     for (index, line) in reader.lines().enumerate() {
@@ -122,19 +124,20 @@ pub fn check(checksum_file: &Path, algo: Algorithm) -> Result<CheckSummary> {
         summary.checked += 1;
         match hash::hash_file(algo, &entry.path) {
             Ok(actual) if actual.eq_ignore_ascii_case(&entry.digest) => {
-                println!("{}: OK", entry.path.display());
+                writeln!(output, "{}: OK", entry.path.display())?;
             }
             Ok(_) => {
                 summary.failed += 1;
-                println!("{}: FAILED", entry.path.display());
+                writeln!(output, "{}: FAILED", entry.path.display())?;
             }
             Err(error) => {
                 summary.failed += 1;
-                println!("{}: FAILED", entry.path.display());
+                writeln!(output, "{}: FAILED", entry.path.display())?;
                 eprintln!("{error}");
             }
         }
     }
+    output.flush()?;
 
     if summary.checked == 0 && summary.malformed == 0 {
         bail!("no checksums found in {}", checksum_file.display());
