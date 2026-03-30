@@ -1,11 +1,14 @@
 ---
-name: build
+name: test & build
 
 on:
   push:
     branches:
-      - main
+      - '**'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,8 +16,6 @@ env:
 jobs:
   test:
     uses: ./.github/workflows/test.yml
-    with:
-      ref: ${{ github.ref_name }}
 
   build:
     runs-on: ubuntu-latest

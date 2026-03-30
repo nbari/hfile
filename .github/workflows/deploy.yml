@@ -16,8 +16,6 @@ env:
 jobs:
   test:
     uses: ./.github/workflows/test.yml
-    with:
-      ref: ${{ github.ref_name }}
 
   release:
     runs-on: ubuntu-latest
@@ -26,7 +24,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.ref }}
 
@@ -52,7 +50,7 @@ jobs:
         run: cargo generate-rpm
 
       - name: Upload release artifacts
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && !startsWith(github.ref_name, 't')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
@@ -65,20 +63,24 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     needs:
-      - build
-    # Only publish to crates.io on tag pushes that DON'T start with 't'
+      - release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && !startsWith(github.ref_name,
       't')
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_TOKEN }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - run: cargo publish --token ${CRATES_TOKEN}
-        env:
-          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - run: cargo publish --locked
 
       - name: Deployment Summary
         if: success()
