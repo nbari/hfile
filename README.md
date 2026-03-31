@@ -1,37 +1,60 @@
 # hfile
 
-**hfile** is a command-line interface (CLI) tool for generating cryptographic hashes
-from files while also facilitating the identification of duplicates.
+[![test & build](https://github.com/nbari/hfile/actions/workflows/build.yml/badge.svg)](https://github.com/nbari/hfile/actions/workflows/build.yml)
+[![crates.io](https://img.shields.io/crates/v/hfile)](https://crates.io/crates/hfile)
+[![coverage](https://codecov.io/gh/nbari/hfile/graph/badge.svg)](https://app.codecov.io/gh/nbari/hfile)
+[![license](https://img.shields.io/github/license/nbari/hfile)](LICENSE)
 
-For regular files, the default BLAKE3 path uses memory-mapped, multithreaded hashing
-to stay close to `b3sum` throughput while keeping the CLI output unchanged.
+`hfile` is a Rust CLI for generating file hashes, verifying checksum manifests,
+and finding duplicate files.
 
-Supported algorithms:
-* Blake3 (default)
-* md5
-* sha1
-* sha256
-* sha384
-* sha512
+For regular files, the default BLAKE3 path uses memory-mapped, multithreaded
+hashing to stay close to `b3sum` throughput while keeping the output simple and
+script-friendly.
 
-Current options:
+## Features
+
+- BLAKE3 by default for regular files
+- Support for `md5`, `sha1`, `sha256`, `sha384`, and `sha512`
+- Recursive hashing with `--path`
+- Duplicate detection with `--duplicates`
+- Manifest verification with `--check`
+- Output that fits `hfile` and GNU checksum workflows
+
+## Installation
+
+Install from the repository:
 
 ```sh
-
-Usage: hfile [OPTIONS] [FILE]
-
-Arguments:
-  [FILE]
-
-Options:
-  -a, --algorithm <ALGORITHM>  [default: blake] [possible values: md5, sha1, sha256, sha384, sha512, blake]
-  -s, --size                   Show size of file
-  -d, --duplicates             Find duplicates
-  -p, --path <PATH>            Create hash for all files under path
-  -c, --check <CHECK>          Read checksums from file and verify them
-  -h, --help                   Print help
-  -V, --version                Print version
+cargo install --path .
 ```
+
+Build a release binary locally:
+
+```sh
+cargo build --release --locked
+```
+
+Tagged releases publish `hfile.gz`, `.deb`, and `.rpm` artifacts on
+[GitHub Releases](https://github.com/nbari/hfile/releases).
+
+## Usage
+
+```text
+hfile [OPTIONS] [FILE]
+```
+
+Quick reference:
+
+- `hfile FILE`: hash a single file
+- `-a, --algorithm <ALGORITHM>`: select `blake`, `md5`, `sha1`, `sha256`,
+  `sha384`, or `sha512`
+- `-s, --size`: show the file size next to the digest
+- `-p, --path <PATH>`: hash every file under a directory
+- `-d, --duplicates`: print duplicate files found under `--path`
+- `-c, --check <CHECK>`: verify checksums from a manifest file
+
+Use `hfile --help` for the full CLI reference.
 
 ## Examples
 
@@ -46,14 +69,12 @@ Show the hash and file size:
 
 ```sh
 hfile -s tests/test-file
-9a689455c65ca329fbcae5a1ae8725d88c7a6fbc82fd25bbcd9370ad9c272c50	tests/test-file	44 B
 ```
 
-Use a different algorithm:
+Use SHA-256:
 
 ```sh
 hfile -a sha256 tests/test-file
-c03905fcdab297513a620ec81ed46ca44ddb62d41cbbd83eb4a5a3592be26a69	tests/test-file
 ```
 
 Hash every file under a directory:
@@ -68,35 +89,24 @@ Print only duplicate files found under a directory:
 hfile -d -p "$HOME"
 ```
 
-Create a SHA-256 checksum file that GNU `sha256sum -c` can verify:
-
-```sh
-hfile -a sha256 tests/test-file > SHA256SUMS
-sha256sum -c SHA256SUMS
-```
-
-Create and verify checksums for all files under a directory:
+Create a SHA-256 checksum file and verify it with GNU `sha256sum` or `hfile`:
 
 ```sh
 hfile -a sha256 -p tests > SHA256SUMS
 sha256sum -c SHA256SUMS
-```
-
-Verify the same checksum file with `hfile`:
-
-```sh
 hfile -a sha256 -c SHA256SUMS
 ```
 
-Do not use `-s` when creating checksum files, since the extra size column is for display only.
+Do not use `--size` when creating checksum files; the extra size column is for
+display only.
 
-Performance comparison:
+## Benchmarks
 
 ```sh
 just compare-blake3
 just compare-blake3-native
 ```
 
-`compare-blake3` benchmarks the portable release build against `b3sum` on the fixture
-file and a generated 256 MiB regular file. `compare-blake3-native` reruns the same
-comparison with `target-cpu=native` for local headroom checks.
+`just compare-blake3` benchmarks the portable release build against `b3sum` on
+`tests/test-file` and a generated 256 MiB file. `just compare-blake3-native`
+reruns the same comparison with `target-cpu=native` for local tuning.
