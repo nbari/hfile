@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2] - 2026-03-31
+
+### Changed
+- Refactored the CLI into a modular `src/cli` architecture with separate clap command definitions, argument dispatch, action execution, and startup orchestration while preserving the existing `hfile [OPTIONS] [FILE]` interface.
+- Replaced the derive-based parser with an explicit clap `Command` builder to keep CLI wiring more maintainable and template-friendly.
+
+### Added
+- Added styled clap help and error output with colored section headings, usage text, option literals, placeholders, and invalid/error highlights.
+- Added unit coverage for clap command validation, ANSI help styling, and `ArgMatches` to action dispatch.
+
 ## [0.5.1] - 2026-03-30
 
 ### Fixed

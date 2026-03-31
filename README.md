@@ -26,9 +26,9 @@ Arguments:
 Options:
   -a, --algorithm <ALGORITHM>  [default: blake] [possible values: md5, sha1, sha256, sha384, sha512, blake]
   -s, --size                   Show size of file
-  -c, --check <CHECK>          Read checksums from file and verify them
   -d, --duplicates             Find duplicates
   -p, --path <PATH>            Create hash for all files under path
+  -c, --check <CHECK>          Read checksums from file and verify them
   -h, --help                   Print help
   -V, --version                Print version
 ```
