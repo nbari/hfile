@@ -17,6 +17,10 @@ jobs:
   test:
     uses: ./.github/workflows/test.yml
 
+  coverage:
+    uses: ./.github/workflows/coverage.yml
+    secrets: inherit
+
   build:
     runs-on: ubuntu-latest
     needs: test
@@ -41,6 +45,6 @@ jobs:
         with:
           if-no-files-found: error
           name: hfile-release
-          path: |
+          path: |-
             target/release/hfile
             target/release/hfile.gz
